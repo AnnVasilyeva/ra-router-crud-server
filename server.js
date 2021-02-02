@@ -1,42 +1,60 @@
 const http = require('http');
+const path = require('path');
 const Koa = require('koa');
 const Router = require('koa-router');
+const Post = require('./post');
 const cors = require('koa2-cors');
 const koaBody = require('koa-body');
-
+const koaStatic = require('koa-static');
 const app = new Koa();
 
-app.use(cors());
-app.use(koaBody({json: true}));
+const public = path.join(__dirname, '/public');
 
-let posts = [{id: 0, content: 'Hello World!'}];
-let nextId = 1;
+app.use(cors());
+app.use(koaStatic(public));
+
+app.use(koaBody({
+    json: true,
+    urlencoded: true,
+    multipart: true,
+    text: true,
+}));
+
+// let posts = [{id: 0, content: 'Hello World!'}];
+// let nextId = 1;
 
 const router = new Router();
 
 router.get('/posts', async (ctx, next) => {
-    ctx.response.body = posts;
+    ctx.response.body = Post.getAll();
 })
 
     .post('/posts', async(ctx, next) => {
-        const {id, content} = ctx.request.body;
+        const {content} = ctx.request.body;
 
-        if (id !== 0) {
-            posts = posts.map(o => o.id !== id ? o : {...o, content: content});
-            ctx.response.status = 204;
-            return;
-        }
+        const ticketPost = new Post(content);
+        await ticketPost.save();
+        ctx.response.body = ticketPost;
 
-        posts.push({...ctx.request.body, id: nextId++, created: Date.now()});
+        // if (id !== 0) {
+        //     posts = posts.map(o => o.id !== id ? o : {...o, content: content});
+        //     ctx.response.status = 204;
+        //     return;
+        // }
+        //
+        // posts.push({...ctx.request.body, id: nextId++, created: Date.now()});
         ctx.response.status = 204;
 })
 
     .delete('/posts/:id', async(ctx, next) => {
         const postId = Number(ctx.params.id);
-        const index = posts.findIndex(o => o.id === postId);
-        if (index !== -1) {
-            posts.splice(index, 1);
-        }
+
+        await Post.delete(postId);
+        // const index = posts.findIndex(o => o.id === postId);
+        // if (index !== -1) {
+        //     posts.splice(index, 1);
+        // }
+        ctx.response.body = 'deleted';
         ctx.response.status = 204;
 });
 
